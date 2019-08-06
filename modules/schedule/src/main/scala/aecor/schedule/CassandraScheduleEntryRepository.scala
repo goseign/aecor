@@ -5,18 +5,19 @@ import java.time.format.DateTimeFormatter
 
 import aecor.schedule.CassandraScheduleEntryRepository.{ Queries, TimeBucket }
 import aecor.schedule.ScheduleEntryRepository.ScheduleEntry
+import aecor.util.effect._
 import akka.NotUsed
 import akka.persistence.cassandra._
 import akka.persistence.cassandra.session.scaladsl.CassandraSession
 import akka.stream.Materializer
 import akka.stream.scaladsl.{ Sink, Source }
+import cats.Monad
+import cats.data.Kleisli
 import cats.effect.Effect
-import com.datastax.driver.core.{ Row, Session }
+import cats.implicits._
+import com.datastax.driver.core.Row
 import com.datastax.driver.extras.codecs.jdk8.InstantCodec
 import org.slf4j.LoggerFactory
-import aecor.util.effect._
-import scala.concurrent.{ ExecutionContext, Future }
-import cats.implicits._
 
 class CassandraScheduleEntryRepository[F[_]](cassandraSession: CassandraSession, queries: Queries)(
   implicit materializer: Materializer,
@@ -219,13 +220,11 @@ object CassandraScheduleEntryRepository {
          ORDER BY due_date ASC;
        """
   }
-  def init(
-    queries: Queries
-  )(implicit executionContext: ExecutionContext): Session => Future[Unit] = { session =>
+  def init[F[_]](queries: Queries)(implicit F: Monad[F]): Session.Init[F] = Kleisli { session =>
     for {
-      _ <- session.executeAsync(queries.createTable).asScala
-      _ <- session.executeAsync(queries.createMaterializedView).asScala
-      _ = session.getCluster.getConfiguration.getCodecRegistry.register(InstantCodec.instance)
+      _ <- session.execute(queries.createTable)
+      _ <- session.execute(queries.createMaterializedView)
+      _ <- session.registerCodec(InstantCodec.instance)
     } yield ()
   }
 }

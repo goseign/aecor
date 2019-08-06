@@ -12,12 +12,12 @@ import aecor.schedule.process.{
   PeriodicProcessRuntime,
   ScheduleProcess
 }
-import aecor.util.ClockT
+import aecor.util.Clock
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import cats.effect.Effect
+import cats.effect.{ ContextShift, Effect }
 import cats.implicits._
 import com.datastax.driver.core.utils.UUIDs
 
@@ -40,10 +40,10 @@ object Schedule {
                                     eventualConsistencyDelay: FiniteDuration,
                                     consumerId: ConsumerId)
 
-  def start[F[_]: Effect](
+  def start[F[_]: Effect: ContextShift](
     entityName: String,
     dayZero: LocalDate,
-    clock: ClockT[F],
+    clock: Clock[F],
     repository: ScheduleEntryRepository[F],
     offsetStore: KeyValueStore[F, TagConsumer, UUID],
     settings: ScheduleSettings = ScheduleSettings(
